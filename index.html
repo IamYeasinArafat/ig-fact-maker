@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Eco Facts Generator</title>
+<meta name="theme-color" content="#214C4D">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@700;800&family=Poppins:wght@700;800&family=Montserrat:wght@700;800&family=Playfair+Display:wght@700;800&family=Anton&family=Bebas+Neue&family=Open+Sans:wght@700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+:root{--bg:#f6f6f4;--card:#fff;--ink:#111;--mute:#666;--line:#ddd;--acc:#111;--accink:#fff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121212;--card:#1d1d1d;--ink:#f2f2f2;--mute:#999;--line:#333;--acc:#f2f2f2;--accink:#111}}
+:root[data-theme="dark"]{--bg:#121212;--card:#1d1d1d;--ink:#f2f2f2;--mute:#999;--line:#333;--acc:#f2f2f2;--accink:#111}
+*{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Lexend",system-ui,Arial,sans-serif;font-size:14px}
+.wrap{max-width:1100px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:22px;margin:0 0 4px}p.sub{color:var(--mute);margin:0 0 18px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+label{display:block;font-size:12px;color:var(--mute);margin:10px 0 4px}
+input[type=text],textarea,select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
+textarea{min-height:200px;resize:vertical;line-height:1.5}
+input[type=color]{width:100%;height:38px;padding:2px;border:1px solid var(--line);border-radius:8px;background:var(--bg);cursor:pointer}
+input[type=range]{width:100%}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:9px 14px;border-radius:8px}
+button.p{background:var(--acc);color:var(--accink);border-color:var(--acc);font-weight:700}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px}
+.hint{font-size:12px;color:var(--mute);line-height:1.5}
+code{background:var(--bg);padding:1px 5px;border-radius:4px}
+#grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.item{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px}
+.item img{width:100%;display:block;border-radius:6px}
+.item .b{display:flex;gap:6px;margin-top:8px}.item button{flex:1;padding:6px;font-size:12px}
+#st{font-size:12px;color:var(--mute)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Fact Post Generator</h1>
+<p class="sub">Paste a list of facts, add photos, and generate a whole batch of “Did you know…?” posts.</p>
+
+<div class="panel">
+<b>Auto mode</b> <span class="hint">— API keys are saved only in this browser (localStorage)</span>
+<div class="row">
+<div><label>AI provider</label><select id="prov"><option value="anthropic">Anthropic (Claude)</option><option value="openai">OpenAI</option><option value="custom">OpenAI-compatible / local</option></select></div>
+<div><label>Base URL</label><input type="text" id="base"></div>
+<div><label>Model</label><input type="text" id="model"></div>
+<div><label>AI API key</label><input type="password" id="akey" placeholder="empty is fine for local models"></div>
+<div><label>Pexels API key (free)</label><input type="password" id="pkey"></div>
+<div><label>Number of facts</label><input type="text" id="count" value="10"></div>
+</div>
+<label>Focus / theme (optional)</label><input type="text" id="topic" placeholder="e.g. Qatar water use and SDG 6">
+<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="web" checked style="width:auto"> Check facts with web search while writing (Anthropic only)</label>
+<div class="bar"><button class="p" id="doall">Do everything</button><button id="gf">1. Write facts</button><button id="fp">3. Fetch photos</button><span id="st2" class="hint"></span></div>
+<p class="hint" id="verify" style="color:var(--ink)"></p>
+</div>
+<div class="panel">
+<label>Facts — one per line. Wrap words in <code>*stars*</code> to underline them. Optional: add <code>::</code> then a caption/description.</label>
+<textarea id="facts">An astronaut was *allergic to the moon* on Apollo-17 mission :: Harrison Schmitt developed hay-fever-like symptoms from lunar dust.
+Honey *never spoils*, even after thousands of years :: Edible honey was found in ancient Egyptian tombs.
+Octopuses have *three hearts* and blue blood
+A day on *Venus* is longer than its year</textarea>
+<div class="row">
+<div><label>Handle (top tab)</label><input type="text" id="handle" value="@MorphFacts"></div>
+<div><label>Middle tab</label><input type="text" id="tab" value="Did you  know ..?"></div>
+<div><label>Footer</label><input type="text" id="foot" value="↓ ↓READ DESCRIPTION↓ ↓"></div>
+<div><label>Photo assignment</label><select id="mode"><option value="cycle">Cycle through photos</option><option value="random">Random</option></select></div>
+</div>
+<label style="margin-top:18px;font-weight:700;color:var(--ink)">Style</label>
+<div class="row">
+<div><label>Preset</label><select id="preset"><option value="">Custom</option><option value="classic">Classic black &amp; white</option><option value="dark">Dark &amp; yellow</option><option value="neon">Neon night</option><option value="red">Red alert</option><option value="eco">Eco Campus (brand guidelines)</option></select></div>
+<div><label>Font</label><select id="font"><option>Lexend</option><option>Poppins</option><option>Montserrat</option><option>Playfair Display</option><option>Anton</option><option>Bebas Neue</option><option>Open Sans</option></select></div>
+<div><label>Tab shape</label><select id="shape"><option value="slant">Slanted</option><option value="square">Square</option><option value="pill">Pill</option></select></div>
+<div><label>Border color</label><input type="color" id="bC" value="#000000"></div>
+<div><label>Tab color</label><input type="color" id="tabC" value="#000000"></div>
+<div><label>Tab text color</label><input type="color" id="tabT" value="#ffffff"></div>
+<div><label>Card background</label><input type="color" id="bgC" value="#ffffff"></div>
+<div><label>Card background style</label><select id="bgM"><option value="solid">Solid color</option><option value="grad">Eco gradient (teal to green)</option></select></div>
+<div><label>Headline color</label><input type="color" id="txtC" value="#000000"></div>
+<div><label>Underline color</label><input type="color" id="ulC" value="#000000"></div>
+<div><label>Border thickness</label><input type="range" id="bw" min="0" max="48" value="16"></div>
+<div><label>Photo height</label><input type="range" id="ph" min="300" max="1000" value="720"></div>
+<div><label>Max headline size</label><input type="range" id="fs" min="40" max="120" value="92"></div>
+<div><label>Photo darkening</label><input type="range" id="ov" min="0" max="0.7" step="0.01" value="0.12"></div>
+</div>
+<p class="hint">Leave the handle or footer text empty to hide it.</p>
+<label>Background photos (optional — no photo = coloured gradient)</label>
+<input type="file" id="files" accept="image/*" multiple>
+<div class="bar">
+<button class="p" id="gen">Generate all</button>
+<button id="zip" disabled>Download all (.zip)</button>
+<button id="cap" disabled>Download captions.txt</button>
+<span id="st"></span>
+</div>
+<p class="hint">Each post is 1080×1350 (4:5, Instagram portrait). Use “Swap photo” on a card to rotate its picture. Tip: dark, high-contrast photos look best.</p>
+</div>
+<div id="grid"></div>
+</div>
+
+<script>
+var S=1080,H=1350,B=16,PH=584,FONT='"Lexend","Poppins",Arial,sans-serif';
+var $=function(i){return document.getElementById(i)};
+var imgs=[],items=[];
+
+function parse(line){
+  var m=line.split('::'),parts=m[0].split('*'),words=[];
+  parts.forEach(function(p,i){p.split(/\s+/).filter(Boolean).forEach(function(w){words.push({w:w,u:i%2===1})})});
+  return {words:words,desc:(m[1]||'').trim(),kw:(m[2]||'').trim(),text:parts.join('').trim()};
+}
+function poly(c,pts){c.beginPath();pts.forEach(function(p,i){i?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1])});c.closePath();c.fill()}
+
+function tabShape(c,sh,x,y,w,h,s,hex){
+  c.beginPath();
+  if(sh==='square')c.rect(x,y,w,h);
+  else if(sh==='pill'){var r=h/2;c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r)}
+  else if(hex){c.moveTo(x+s,y);c.lineTo(x+w-s,y);c.lineTo(x+w,y+h/2);c.lineTo(x+w-s,y+h);c.lineTo(x+s,y+h);c.lineTo(x,y+h/2)}
+  else{c.moveTo(x,y);c.lineTo(x+w,y);c.lineTo(x+w-s,y+h);c.lineTo(x+s,y+h)}
+  c.closePath();c.fill();
+}
+function draw(cv,it,o){
+  B=o.bw;PH=o.ph;FONT='"'+o.font+'",Arial,sans-serif';
+  cv.width=S;cv.height=H;var c=cv.getContext('2d'),W=S-2*B;
+  c.fillStyle=o.border;c.fillRect(0,0,S,H);
+  if(o.bgM==='grad'){var gg=c.createLinearGradient(B,H-B,S-B,B);gg.addColorStop(0,'#214C4D');gg.addColorStop(1,'#75A95A');c.fillStyle=gg}else c.fillStyle=o.bg;
+  c.fillRect(B,B,W,H-2*B);
+  c.save();c.beginPath();c.rect(B,B,W,PH);c.clip();
+  var img=it.image||imgs[it.img];
+  if(img){var r=Math.max(W/img.width,PH/img.height),w=img.width*r,h=img.height*r;c.drawImage(img,B+(W-w)/2,B+(PH-h)/2,w,h);c.fillStyle='rgba(0,0,0,'+o.ov+')';c.fillRect(B,B,W,PH)}
+  else if(o.bgM==='grad'){var eg=c.createLinearGradient(B,B+PH,S-B,B);eg.addColorStop(0,'#214C4D');eg.addColorStop(1,'#75A95A');c.fillStyle=eg;c.fillRect(B,B,W,PH);var y1=B+PH;c.fillStyle='rgba(33,76,77,.5)';c.beginPath();c.moveTo(B,y1);c.bezierCurveTo(B+20,y1-300,B+250,y1-420,B+470,y1-430);c.bezierCurveTo(B+450,y1-200,B+300,y1-30,B,y1);c.fill();c.strokeStyle='rgba(228,218,196,.35)';c.lineWidth=6;c.beginPath();c.moveTo(B+50,y1-40);c.bezierCurveTo(B+150,y1-150,B+260,y1-280,B+400,y1-380);c.stroke()}
+  else{var h1=(it.hue||0),g=c.createLinearGradient(0,B,S,B+PH);g.addColorStop(0,'hsl('+h1+',55%,22%)');g.addColorStop(1,'hsl('+((h1+60)%360)+',60%,8%)');c.fillStyle=g;c.fillRect(B,B,W,PH)}
+  c.restore();
+  c.fillStyle=o.border;c.fillRect(B,PH-6,W,12);
+  c.textAlign='center';c.textBaseline='middle';
+  if(o.handle){c.font='800 42px '+FONT;var hw=Math.max(240,c.measureText(o.handle).width+120);c.fillStyle=o.tabC;tabShape(c,o.shape,540-hw/2,-12,hw,76,45,false);c.fillStyle=o.tabT;c.fillText(o.handle,540,28)}
+  c.font='800 50px '+FONT;var mw=Math.max(420,c.measureText(o.tab).width+170);c.fillStyle=o.tabC;tabShape(c,o.shape,540-mw/2,PH-30,mw,96,75,true);c.fillStyle=o.tabT;c.fillText(o.tab,540,PH+17);
+  // headline
+  var top=PH+90,bot=H-80,maxW=900,size,lines,lh;
+  for(size=o.fs;size>=34;size-=2){
+    c.font='800 '+size+'px '+FONT;var sp=c.measureText(' ').width;
+    lines=[];var cur=[],cw=0;
+    it.words.forEach(function(wd){var ww=c.measureText(wd.w).width;
+      if(cur.length&&cw+sp+ww>maxW){lines.push(cur);cur=[];cw=0}
+      cw+=(cur.length?sp:0)+ww;cur.push({w:wd.w,u:wd.u,ww:ww})});
+    if(cur.length)lines.push(cur);
+    lh=size*1.22;if(lines.length*lh<=bot-top)break;
+  }
+  c.textAlign='left';c.fillStyle=o.txt;
+  var sp2=c.measureText(' ').width,y0=(top+bot)/2-lines.length*lh/2;
+  lines.forEach(function(ln,i){
+    var tw=ln.reduce(function(a,x){return a+x.ww},0)+sp2*(ln.length-1),x=(S-tw)/2,y=y0+i*lh+lh/2;
+    ln.forEach(function(wd,j){
+      c.fillStyle=o.txt;c.fillText(wd.w,x,y);
+      if(wd.u){var e=x+wd.ww+((ln[j+1]&&ln[j+1].u)?sp2:0);c.fillStyle=o.ul;c.fillRect(x,y+size*.4,e-x,Math.max(3,size*.06))}
+      x+=wd.ww+sp2;
+    });
+  });
+  if(o.foot){c.textAlign='center';c.fillStyle=o.txt;c.font='700 26px '+FONT;c.fillText(o.foot,540,H-B-22)}
+}
+
+function opts(){return {handle:$('handle').value,tab:$('tab').value,foot:$('foot').value,border:$('bC').value,tabC:$('tabC').value,tabT:$('tabT').value,bg:$('bgC').value,txt:$('txtC').value,ul:$('ulC').value,bw:+$('bw').value,ph:+$('ph').value,fs:+$('fs').value,ov:$('ov').value,font:$('font').value,shape:$('shape').value,bgM:$('bgM').value}}
+function blobOf(cv){return new Promise(function(r){cv.toBlob(r,'image/png')})}
+function pad(n){return ('000'+n).slice(-3)}
+
+function load(files){
+  return Promise.all([].map.call(files,function(f){return new Promise(function(res){
+    var fr=new FileReader();fr.onload=function(){var im=new Image();im.onload=function(){res(im)};im.onerror=function(){res(null)};im.src=fr.result};fr.readAsDataURL(f)})}))
+  .then(function(a){imgs=a.filter(Boolean)});
+}
+
+function render(it,idx){
+  var cv=document.createElement('canvas');draw(cv,it,opts());
+  var im=it.el.querySelector('img');im.src=cv.toDataURL('image/png');it.cv=cv;
+}
+
+async function generate(){
+  $('st').textContent='Generating…';
+  try{await Promise.all([document.fonts.load('800 60px "'+$('font').value+'"'),document.fonts.load('700 60px "'+$('font').value+'"')])}catch(e){}
+  await load($('files').files);
+  var lines=$('facts').value.split('\n').map(function(s){return s.trim()}).filter(Boolean);
+  var g=$('grid');g.innerHTML='';items=[];
+  lines.forEach(function(l,i){
+    var it=parse(l);
+    it.img=imgs.length?($('mode').value==='random'?Math.floor(Math.random()*imgs.length):i%imgs.length):0;
+    it.hue=(i*47+200)%360;
+    var el=document.createElement('div');el.className='item';
+    el.innerHTML='<img alt="Fact post '+(i+1)+'"><div class="b"><button data-a="swap">Swap photo</button><button data-a="save">Save PNG</button></div>';
+    el.querySelector('[data-a=swap]').onclick=function(){swap(it)};
+    el.querySelector('[data-a=save]').onclick=function(){save('fact-'+pad(i+1)+'.png',it.cv)};
+    g.appendChild(el);it.el=el;items.push(it);render(it);
+  });
+  $('zip').disabled=$('cap').disabled=!items.length;
+  $('st').textContent=items.length+' posts ready';
+}
+
+async function offer(name,data){
+  var b=data instanceof Blob?data:new Blob([data],{type:'text/plain'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(function(){URL.revokeObjectURL(a.href)},4000);$('st').textContent='Downloaded '+name;
+}
+async function save(name,cv){offer(name,await blobOf(cv))}
+
+
+function gk(k){try{return localStorage.getItem(k)||''}catch(e){return ''}}
+function sk(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+['pkey','topic','count'].forEach(function(id){if(gk(id))$(id).value=gk(id);$(id).addEventListener('change',function(){sk(id,$(id).value.trim())})});
+var DEF={anthropic:['https://api.anthropic.com','claude-sonnet-5-5'],openai:['https://api.openai.com/v1','gpt-4.1'],custom:['http://localhost:11434/v1','llama3.1']};
+function loadProv(){var p=$('prov').value;$('base').value=gk('base_'+p)||DEF[p][0];$('model').value=gk('model_'+p)||DEF[p][1];$('akey').value=gk('akey_'+p);$('web').disabled=p!=='anthropic'}
+$('prov').value=gk('prov')||'anthropic';loadProv();
+$('prov').onchange=function(){sk('prov',this.value);loadProv()};
+['base','model','akey'].forEach(function(id){$(id).addEventListener('change',function(){sk(id+'_'+$('prov').value,$(id).value.trim())})});
+function say(t){$('st2').textContent=t}
+function hist(){try{return JSON.parse(gk('hist')||'[]')}catch(e){return []}}
+function remember(){var h=hist();items.forEach(function(it){h.push(it.text)});sk('hist',JSON.stringify(h.slice(-300)))}
+var PROMPT=`You are the content writer for @cmuq_ecocampus, the sustainability account of Carnegie Mellon University in Qatar. Audience: students, staff and faculty in Qatar. Tone: clear, curious, positive; inform and suggest simple actions, never guilt-trip.
+
+Write {N} "Did you know...?" facts about the environment, sustainability and the UN Sustainable Development Goals. Focus: {FOCUS}.
+Spread topics across climate and energy (SDG 7, 13), water (SDG 6), waste and circular economy (SDG 12), biodiversity, oceans and land (SDG 14, 15), cities, food and transport (SDG 2, 11). At least a third should be about Qatar, the Gulf or MENA.
+
+ACCURACY: only use facts you are highly confident are true and can attribute to a named source (UN, UNEP, IPCC, NASA, NOAA, WWF, IEA, World Bank, Qatar Ministry of Environment, etc). No myths or viral claims. Don't exaggerate; use "about" for approximations; include the data year. If web search is available, use it to confirm each statistic.
+
+FORMAT (strict): one fact per line, no numbering, bullets or commentary:
+HEADLINE :: DESCRIPTION :: PHOTO KEYWORD
+- HEADLINE: one surprising sentence, max 90 characters. Wrap the 2 to 5 most striking words in *asterisks*. No emojis.
+- DESCRIPTION: 2 to 3 short sentences of context, an easy action if natural, then source and SDG in brackets, e.g. (Source: UNEP, 2023 · SDG 12)
+- PHOTO KEYWORD: 2 to 4 words for a concrete, visual stock photo search, e.g. coral reef underwater
+Do not repeat topics. After the facts add one line starting with "VERIFY:" listing any fact you are less than fully certain about.`;
+async function aiText(p){
+  var prov=$('prov').value,key=$('akey').value.trim(),base=$('base').value.trim().replace(/\/+$/,''),model=$('model').value.trim(),r,d;
+  if(prov==='anthropic'){
+    var body={model:model,max_tokens:6000,messages:[{role:'user',content:p}]};
+    if($('web').checked)body.tools=[{type:'web_search_20250305',name:'web_search',max_uses:8}];
+    r=await fetch(base+'/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify(body)});
+    d=await r.json();if(!r.ok)throw new Error((d.error&&d.error.message)||r.status);
+    return d.content.filter(function(b){return b.type==='text'}).map(function(b){return b.text}).join('\n');
+  }
+  var h={'content-type':'application/json'};if(key)h.Authorization='Bearer '+key;
+  r=await fetch(base+'/chat/completions',{method:'POST',headers:h,body:JSON.stringify({model:model,messages:[{role:'user',content:p}]})});
+  d=await r.json();if(!r.ok)throw new Error((d.error&&(d.error.message||d.error))||r.status);
+  return d.choices[0].message.content;
+}
+async function genFacts(){
+  var prov=$('prov').value;
+  if(!$('akey').value.trim()&&prov!=='custom'){say('Add your AI API key first.');return false}
+  if(!$('model').value.trim()||!$('base').value.trim()){say('Set the base URL and model.');return false}
+  var n=Math.max(1,Math.min(40,parseInt($('count').value)||10));
+  var p=PROMPT.replace('{N}',n).replace('{FOCUS}',$('topic').value.trim()||'a balanced mix of all topics');
+  var h=hist();if(h.length)p+='\n\nDo NOT repeat any of these already-posted facts:\n'+h.slice(-120).join('\n');
+  say('Writing facts…');
+  try{
+    var lines=(await aiText(p)).split('\n').map(function(l){return l.trim().replace(/^\d+[.)]\s+/,'')}).filter(Boolean);
+    var facts=lines.filter(function(l){return l.indexOf('::')>0&&!/^VERIFY:/i.test(l)});
+    var ver=lines.filter(function(l){return /^VERIFY:/i.test(l)}).join(' ');
+    if(!facts.length){say('The AI returned no facts in the expected format. Try again.');return false}
+    $('facts').value=facts.join('\n');
+    $('verify').textContent=ver?'Double-check before posting — '+ver.replace(/^VERIFY:\s*/i,''):(prov==='anthropic'&&$('web').checked?'':'No web search was used, so verify every statistic before posting.');
+    say(facts.length+' facts written. Review and edit them, then build.');return true;
+  }catch(e){say('AI error: '+e.message);return false}
+}
+async function setCand(it){
+  var p=it.cands[it.ci],r=await fetch(p.src.large2x||p.src.large),b=await r.blob();
+  it.image=await new Promise(function(res,rej){var im=new Image();im.onload=function(){res(im)};im.onerror=rej;im.src=URL.createObjectURL(b)});
+  it.credit=p.photographer+' / Pexels ('+p.url+')';render(it);
+}
+async function fetchPhotos(){
+  var key=$('pkey').value.trim();if(!key){say('Add your Pexels API key first.');return}
+  sk('pkey',key);var used={};
+  for(var i=0;i<items.length;i++){
+    var it=items[i];if(!it.kw)continue;
+    say('Photo '+(i+1)+'/'+items.length+': '+it.kw);
+    try{
+      var r=await fetch('https://api.pexels.com/v1/search?per_page=12&orientation=landscape&query='+encodeURIComponent(it.kw),{headers:{Authorization:key}});
+      var d=await r.json();if(!r.ok)throw new Error(d.error||r.status);
+      it.cands=(d.photos||[]).filter(function(p){return !used[p.id]}).slice(0,6);
+      if(it.cands.length){used[it.cands[0].id]=1;it.ci=0;await setCand(it)}
+    }catch(e){say('Photo error: '+e.message)}
+  }
+  say('Photos done. Use “Swap photo” on any card for another option.');
+}
+async function swap(it){
+  try{
+    if(it.cands&&it.cands.length>1){it.ci=(it.ci+1)%it.cands.length;await setCand(it)}
+    else if(imgs.length){it.image=null;it.img=(it.img+1)%imgs.length;render(it)}
+    else{it.hue=(it.hue+40)%360;render(it)}
+  }catch(e){say('Could not load that photo')}
+}
+$('gf').onclick=genFacts;$('fp').onclick=fetchPhotos;
+$('doall').onclick=async function(){if(!await genFacts())return;await generate();await fetchPhotos();say('Done. Review the posts, then download.')};
+var PRE={classic:['#000000','#000000','#ffffff','#ffffff','#000000','#000000'],dark:['#000000','#ffd400','#000000','#111111','#ffffff','#ffd400'],neon:['#0b0b2b','#ff2e93','#ffffff','#0b0b2b','#ffffff','#00e5ff'],eco:['#214C4D','#214C4D','#ffffff','#ffffff','#ffffff','#E4DAC4'],red:['#b00020','#b00020','#ffffff','#ffffff','#111111','#b00020']};
+var KEYS=['bC','tabC','tabT','bgC','txtC','ulC'];
+$('preset').onchange=function(){var v=this.value,p=PRE[v];if(!p)return;KEYS.forEach(function(k,i){$(k).value=p[i]});$('bgM').value=v==='eco'?'grad':'solid';if(v==='eco'){$('font').value='Open Sans';$('font').dispatchEvent(new Event('input'))}else items.forEach(function(it){render(it)})};
+$('gen').onclick=generate;
+$('zip').onclick=async function(){
+  $('st').textContent='Building zip…';
+  var z=new JSZip(),cap=[];
+  for(var i=0;i<items.length;i++){
+    items[i].cv.getContext&&0;
+    var b=await blobOf(items[i].cv);z.file('fact-'+pad(i+1)+'.png',b);
+    cap.push((i+1)+'. '+items[i].text+(items[i].desc?'\n   '+items[i].desc:'')+(items[i].credit?'\n   Photo: '+items[i].credit:''));
+  }
+  z.file('captions.txt',cap.join('\n\n'));
+  await offer('facts.zip',await z.generateAsync({type:'blob'}));remember();
+};
+$('cap').onclick=function(){
+  offer('captions.txt',items.map(function(it,i){return (i+1)+'. '+it.text+(it.desc?'\n   '+it.desc:'')+(it.credit?'\n   Photo: '+it.credit:'')}).join('\n\n'));
+};
+['handle','tab','foot','bC','tabC','tabT','bgC','txtC','ulC','bw','ph','fs','ov','font','shape','bgM'].forEach(function(id){$(id).addEventListener('input',function(){
+  var f=$('font').value;
+  Promise.all([document.fonts.load('800 60px "'+f+'"'),document.fonts.load('700 60px "'+f+'"')]).catch(function(){}).then(function(){items.forEach(function(it){render(it)})});
+})});
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(generate);else generate();
+</script>
+</body>
+</html>
